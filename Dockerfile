@@ -5,5 +5,5 @@ RUN npm install
 COPY src ./src
 RUN npm run build
 RUN mkdir -p /app/data /app/tmp
-EXPOSE 8088
+EXPOSE 7088
 CMD ["npm", "start"]
