@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
-      - "8088:8088"
+      - "7088:7088"
     volumes:
       - ./data:/app/data
       - ./tmp:/app/tmp
