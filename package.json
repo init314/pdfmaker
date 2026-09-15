@@ -9,14 +9,15 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "better-sqlite3": "^11.8.1",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "googleapis": "^144.0.0",
     "pdf-lib": "^1.17.1",
-    "sharp": "^0.33.5",
-    "better-sqlite3": "^11.8.1"
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "tsx": "^4.19.2",
