@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { google } from 'googleapis';
 import { PDFDocument } from 'pdf-lib';
 import sharp from 'sharp';
+import { Readable } from 'node:stream';
 import heicConvert from 'heic-convert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -87,7 +88,7 @@ async function runJob(id: string) {
     const out = await pdf.save();
     const folder = process.env.DRIVE_PDF_FOLDER_ID;
     if (!folder) throw new Error('DRIVE_PDF_FOLDER_ID is not configured');
-    await drive().files.create({ requestBody: { name: `photos-${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`, parents: [folder], mimeType: 'application/pdf' }, media: { mimeType: 'application/pdf', body: Buffer.from(out) } });
+    await drive().files.create({ requestBody: { name: `photos-${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`, parents: [folder], mimeType: 'application/pdf' }, media: { mimeType: 'application/pdf', body: Readable.from([Buffer.from(out)]) } });
     update('PDF_UPLOADED');
     const archive = process.env.DRIVE_ARCHIVE_FOLDER_ID;
     if (archive) for (const file of files) if (file.id) await drive().files.update({ fileId: file.id, addParents: archive, removeParents: process.env.DRIVE_INPUT_FOLDER_ID });
