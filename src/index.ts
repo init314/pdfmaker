@@ -4,11 +4,11 @@ import Database from 'better-sqlite3';
 import { google } from 'googleapis';
 import { PDFDocument } from 'pdf-lib';
 import sharp from 'sharp';
+import heicConvert from 'heic-convert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { Readable } from 'node:stream';
 
-const port = Number(process.env.PORT ?? 8088);
+const port = Number(process.env.PORT ?? 7088);
 const app = express();
 app.use(express.json());
 
@@ -36,7 +36,15 @@ async function listInputFiles() {
     fields: 'files(id,name,mimeType,size,modifiedTime,md5Checksum)',
     pageSize: 1000
   });
-  return (result.data.files ?? []).filter(f => /\.(jpe?g|png)$/i.test(f.name ?? '')).sort(naturalSort);
+  return (result.data.files ?? []).filter(f => /\.(jpe?g|png|heic)$/i.test(f.name ?? '')).sort(naturalSort);
+}
+
+async function normalizeImage(input: Buffer, fileName: string): Promise<Buffer> {
+  const isHeic = /\.heic$/i.test(fileName);
+  const decoded = isHeic
+    ? Buffer.from(await heicConvert({ buffer: input, format: 'JPEG', quality: 0.92 }))
+    : input;
+  return sharp(decoded).rotate().png().toBuffer();
 }
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', port }));
@@ -68,8 +76,8 @@ async function runJob(id: string) {
     for (const file of files) {
       if (!file.id) continue;
       const response = await drive().files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
-      const image = await sharp(Buffer.from(response.data as ArrayBuffer)).rotate().png().toBuffer({ resolveWithObject: true });
-      const embedded = await pdf.embedPng(image.data);
+      const image = await normalizeImage(Buffer.from(response.data as ArrayBuffer), file.name ?? '');
+      const embedded = await pdf.embedPng(image);
       const page = pdf.addPage([595.28, 841.89]);
       const margin = 24;
       const scale = Math.min((page.getWidth() - 2 * margin) / embedded.width, (page.getHeight() - 2 * margin) / embedded.height);
@@ -79,7 +87,7 @@ async function runJob(id: string) {
     const out = await pdf.save();
     const folder = process.env.DRIVE_PDF_FOLDER_ID;
     if (!folder) throw new Error('DRIVE_PDF_FOLDER_ID is not configured');
-    await drive().files.create({ requestBody: { name: `photos-${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`, parents: [folder], mimeType: 'application/pdf' }, media: { mimeType: 'application/pdf', body: Readable.from(Buffer.from(out)) } });
+    await drive().files.create({ requestBody: { name: `photos-${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`, parents: [folder], mimeType: 'application/pdf' }, media: { mimeType: 'application/pdf', body: Buffer.from(out) } });
     update('PDF_UPLOADED');
     const archive = process.env.DRIVE_ARCHIVE_FOLDER_ID;
     if (archive) for (const file of files) if (file.id) await drive().files.update({ fileId: file.id, addParents: archive, removeParents: process.env.DRIVE_INPUT_FOLDER_ID });
